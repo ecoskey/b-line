@@ -1,38 +1,93 @@
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Types.Options where
 
 import RIO
-import Types.Beatsaver (SongID)
 import Options.Applicative
+import Lens.Micro.TH
+import Web.HttpApiData
+import RIO.Text
 
-data Options 
-    = Search !Text
-    | Info !SongID
-    | Play !SongID
-    deriving (Eq, Ord)
+data SearchOpts = SearchOpts 
+    { _query :: !Text
+    , _sort :: !SortOrder
+    --, nps      :: Range Float
+    --, stars    :: Range Float
+    --, duration :: Range Float
+    --, rating   :: Range Float
+    , _chroma :: !Bool
+    , _noodle :: !Bool
+    , _ranked :: !Bool
+    , _cinema :: !Bool
+    , _curated :: !Bool
+    , _ai :: !AiOptions
+    --, sort     :: SortOrder
+    } deriving (Show)
 
-optionsParser :: Parser Options
-optionsParser = optionsParser
 
-commandsParser :: Parser Options
-commandsParser = subparser 
-    (  command "search" 
-        (info searchParser (progDesc "Search for a map on Beatsaver"))
-    <> command "info" 
-        (info songInfoParser (progDesc "Get the info for a map on Beatsaver")) 
-    <> command "play" 
-        (info playParser (progDesc "Play a map on Beatsaver")))
+data Range n = Range { _min :: Maybe n, _max :: Maybe n } deriving Show
 
-searchParser :: Parser Options
-searchParser = Info
-    <$> option str 
-        (  long "query"
-        <> short 'q'
-        <> metavar "STRING" 
-        <> help "What text to search Beatsaver for") 
 
-songInfoParser :: Parser Options
-songInfoParser = undefined
+data AiOptions = Both | OnlyAi | NoAi deriving (Eq, Enum, Show)
 
-playParser :: Parser Options
-playParser = undefined
+instance ToHttpApiData AiOptions where
+    toQueryParam a = case a of
+        Both -> "true"
+        OnlyAi -> "false"
+        NoAi -> "null"
+
+
+data SortOrder = Latest | Relevance | Rating | Curated  deriving (Eq, Enum, Show, Read)
+
+instance ToHttpApiData SortOrder where
+    toQueryParam = pack . show
+
+
+parseSearchOpts :: ParserInfo SearchOpts
+parseSearchOpts = info (helper <*> _parseSearchOpts)
+    (  fullDesc
+    <> progDesc "Search for a map on Beatsaver and preview it"
+    <> header "b-line" )
+
+_parseSearchOpts :: Parser SearchOpts
+_parseSearchOpts = SearchOpts 
+    <$> strOption
+        (  long "search"
+        <> short 's'
+        <> help "What text to search for"
+        <> metavar "STRING")
+    <*> option auto
+        (  long "order"
+        <> short 'o'
+        <> value Relevance
+        <> help "What order to sort results in"
+        <> metavar "STRING" ) --todo: should this list enum values?
+    <*> switch 
+        (  short 'c'
+        <> help "Filter for Chroma maps")
+    <*> switch 
+        (  short 'n'
+        <> help "Filter for Noodle maps")
+    <*> switch 
+        (  short 'r'
+        <> help "Filter for ranked maps")
+    <*> switch 
+        (  short 'm'
+        <> help "Filter for cinema maps")
+    <*> switch 
+        (  short 'v'
+        <> help "Filter for curated maps")
+    <*> (   flag' OnlyAi 
+            (  short 'a'
+            <> help "Allow ONLY AI generated maps") 
+        <|> flag' NoAi 
+            (  short 'A'
+            <> help "Don't allow AI generated maps") 
+        <|> pure Both) 
+
+makeLenses ''SearchOpts
+makeLenses ''Range
+
+class HasSearchOpts a where
+    searchOptsL :: Lens' a SearchOpts

@@ -3,7 +3,11 @@
 module App (app) where
 
 import RIO
+import Types
+import Search
 
-app :: RIO SimpleApp ()
+app :: RIO App ()
 app = do
-  logInfo "We're inside the application!"
+    ctx <- view appProcessContext
+    mapChoice <- search
+    pure ()

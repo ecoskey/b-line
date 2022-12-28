@@ -1,18 +1,22 @@
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Types.App where
     
-import RIO
 import RIO.Process
 import Types.Options
+import Lens.Micro.TH
 
 data App = App
-  { appLogFunc :: !LogFunc
-  , appProcessContext :: !ProcessContext
-  , appOptions :: !Options
-  -- Add other app-specific configuration information here
+  { _appSearchOpts :: !SearchOpts
+  , _appProcessContext :: !ProcessContext
   }
 
-instance HasLogFunc App where
-  logFuncL = lens appLogFunc (\x y -> x { appLogFunc = y })
+makeLenses ''App
+
+--instance HasLogFunc App where
+--  logFuncL = appLogFunc
 instance HasProcessContext App where
-  processContextL = lens appProcessContext (\x y -> x { appProcessContext = y })
+  processContextL = appProcessContext
+
+instance HasSearchOpts App where
+  searchOptsL = appSearchOpts
